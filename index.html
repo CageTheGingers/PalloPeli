@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Multiplayer Ball Clicking Game</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    #ballsContainer {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+    }
+    .ball {
+      width: 50px;
+      height: 50px;
+      position: absolute;
+      background-color: red;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+    #startButton {
+      position: absolute;
+      z-index: 10;
+      padding: 10px 20px;
+      font-size: 16px;
+      top: 20px;
+      left: 20px;
+    }
+    #winnerDisplay {
+      font-size: 24px;
+      font-weight: bold;
+      position: absolute;
+      top: 80px;
+      left: 20px;
+    }
+  </style>
+</head>
+<body>
+  <button id="startButton">Start Game</button>
+  <div id="ballsContainer"></div>
+  <div id="winnerDisplay"></div>
+
+  <!-- Firebase CDN -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js"></script>
+
+  <script>
+    const startButton = document.getElementById('startButton');
+    const ballsContainer = document.getElementById('ballsContainer');
+    const winnerDisplay = document.getElementById('winnerDisplay');
+    let playerScores = { player1: 0, player2: 0 };
+    let playerId = null;
+    let balls = [];
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBkkMuxOTuYkkH6w7RjD46eSaU1xPZX-7s",
+      authDomain: "ball-clicking-game-bac45.firebaseapp.com",
+      databaseURL: "https://ball-clicking-game-bac45-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "ball-clicking-game-bac45",
+      storageBucket: "ball-clicking-game-bac45.firebasestorage.app",
+      messagingSenderId: "193185201981",
+      appId: "1:193185201981:web:f8c3433dc555e68c2acf54"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+
+    function generateBallPositions() {
+      balls = [];
+      for (let i = 0; i < 10; i++) {
+        let x = Math.random() * 100;
+        let y = Math.random() * 100;
+        balls.push({ x, y, clicked: false });
+      }
+      database.ref('balls').set(balls);
+    }
+
+    function updateScore(player, score) {
+      playerScores[player] = score;
+      database.ref('score').set(playerScores);
+    }
+
+    function displayWinner() {
+      if (playerScores.player1 === playerScores.player2) {
+        winnerDisplay.textContent = 'It\'s a tie!';
+      } else if (playerScores.player1 > playerScores.player2) {
+        winnerDisplay.textContent = 'Player 1 wins!';
+      } else {
+        winnerDisplay.textContent = 'Player 2 wins!';
+      }
+    }
+
+    function startGame() {
+      ballsContainer.innerHTML = '';
+      winnerDisplay.textContent = '';
+      generateBallPositions();
+      balls.forEach(ball => {
+        const ballElement = document.createElement('div');
+        ballElement.classList.add('ball');
+        ballElement.style.left = `${ball.x}%`;
+        ballElement.style.top = `${ball.y}%`;
+        ballsContainer.appendChild(ballElement);
+
+        ballElement.addEventListener('click', () => {
+          if (!ball.clicked) {
+            ball.clicked = true;
+            ballElement.style.backgroundColor = 'green';
+            updateScore(playerId, playerScores[playerId] + 1);
+            checkGameOver();
+          }
+        });
+      });
+    }
+
+    function checkGameOver() {
+      const remainingBalls = balls.filter(ball => !ball.clicked).length;
+      if (remainingBalls === 0) {
+        displayWinner();
+      }
+    }
+
+    startButton.addEventListener('click', () => {
+      if (!playerId) {
+        playerId = 'player1';
+      } else if (playerId === 'player1') {
+        playerId = 'player2';
+      }
+      startGame();
+    });
+
+    database.ref('balls').on('value', snapshot => {
+      balls = snapshot.val();
+      ballsContainer.innerHTML = '';
+      balls.forEach(ball => {
+        const ballElement = document.createElement('div');
+        ballElement.classList.add('ball');
+        ballElement.style.left = `${ball.x}%`;
+        ballElement.style.top = `${ball.y}%`;
+        ballsContainer.appendChild(ballElement);
+
+        if (ball.clicked) {
+          ballElement.style.backgroundColor = 'green';
+        }
+
+        ballElement.addEventListener('click', () => {
+          if (!ball.clicked && playerId) {
+            ball.clicked = true;
+            ballElement.style.backgroundColor = 'green';
+            updateScore(playerId, playerScores[playerId] + 1);
+            database.ref('balls').set(balls);
+            checkGameOver();
+          }
+        });
+      });
+    });
+
+    database.ref('score').on('value', snapshot => {
+      playerScores = snapshot.val();
+    });
+  </script>
+</body>
+</html>
